@@ -103,13 +103,6 @@ def unify(bib_entry, source="undefined"):
             entry[k] += s + value.replace("  "," ").strip()
     return entry
 
-def tocsv(toCSV):
-    keys = toCSV[0].keys()
-    with open('unified.txt', 'wb') as output_file:
-        dict_writer = csv.DictWriter(output_file, keys, delimiter='\t')
-        dict_writer.writeheader()
-        dict_writer.writerows(toCSV)
-
 def read_bib(source):
     print_log("Reading: "+source)
     bib_db = load_bib(source)
@@ -119,13 +112,34 @@ def read_bib(source):
     print_log(str(len(entries_unified))+" processed records")
     return entries_unified
 
+def merge(entries):
+    print_log("\nMerging similar records...")
+    unique = set()
+    merged = []
+    for f in entries:
+        i = len(unique)
+        unique.add(f["titleletters"])
+        if i == len(unique):
+            print("Change this for good merging algo") # *********** TODO **************
+        else:
+            merged.append(f)
+    return merged
 
-print_log("\nRunning BibTeX to txt\n")
-entries_to_save = []
-for filename in glob.glob('*.bib'):
-    entries_to_save.extend(read_bib(filename))
+def tocsv(toCSV):
+    print_log("\nSaving unified.txt as a tab separated file")
+    keys = toCSV[0].keys()
+    with open('unified.txt', 'wb') as output_file:
+        dict_writer = csv.DictWriter(output_file, keys, delimiter='\t')
+        dict_writer.writeheader()
+        dict_writer.writerows(toCSV)
+    print_log(str(len(toCSV))+ " total records saved")
 
+def run():
+    print_log("\nRunning BibTeX to txt\n")
+    entries_to_save = []
+    for filename in glob.glob('*.bib'):
+        entries_to_save.extend(read_bib(filename))
+    entries_to_save = merge(entries_to_save)
+    tocsv(entries_to_save)
 
-print_log("\nSaving unified.txt as a tab separated file")
-tocsv(entries_to_save)
-print_log(str(len(entries_to_save))+ " total records saved")
+run()
