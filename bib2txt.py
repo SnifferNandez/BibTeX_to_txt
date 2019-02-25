@@ -47,7 +47,7 @@ def cited_references_parser(cr):
 def references_parser(cr):
     # This is a SCOPUS field
     f=open("references-scopus.txt", "a+")
-    f.write(str(cr.replace(separator, "\n")))
+    f.write(str(cr.replace(separator, "\n").strip()))
     return cr
 
 def print_log(msg):
@@ -85,8 +85,11 @@ def unify(bib_entry, source="undefined"):
     entry = {"Fuente": source}
     for k, v in unify_fields.items():
         entry.update({k:""})
+        titleletters = re.sub(r'[^a-zA-Z0-9]+', '', bib_entry["title"])
+        entry.update({"titleletters": titleletters.lower()}) # Useful for combinations
         for f in v:
             s = ""
+            value = ""
             try:
                 if len(entry[k]) > 1 and bib_entry[f]:
                     s = separator
@@ -121,6 +124,7 @@ print_log("\nRunning BibTeX to txt\n")
 entries_to_save = []
 for filename in glob.glob('*.bib'):
     entries_to_save.extend(read_bib(filename))
+
 
 print_log("\nSaving unified.txt as a tab separated file")
 tocsv(entries_to_save)
