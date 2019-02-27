@@ -20,6 +20,7 @@ unify_fields = {"Titulo":["title"],
                 "Resumen":["abstract"],
                 "Tipo":["ENTRYTYPE"],
                 "Id":["ID"],
+                "Impacto":["times-cited","note"], # Only on WoS and SCOPUS
                 "Referencias":["cited-references","references"], # Only on WoS and SCOPUS
                 }
 
@@ -28,26 +29,32 @@ def title_parser(title):
     return title.replace("\n", " ") # For WoS field
 def author_parser(author):
     author = author.replace("\n", " ") # For WoS field
-    author = author.replace(" and", separator)
+    author = author.replace(separator, "-").replace(" and", separator)
     return author
 def year_parser(date):
     # Return only the year. Ex: 2019/11/30 = 2019
     return re.search('\d{4}', date).group(0)
 def keywords_parser(kw):
     kw = kw.replace("\n", " ") # For WoS field
-    kw = kw.replace(",", separator) # For EBSCO field
+    kw = kw.replace(separator, "-").replace(",", separator) # For EBSCO field
     return kw
 def abstract_parser(abs):
     return abs.replace("\n", " ") # For WoS field
+def times_cited_parser(impact):
+    return impact # For WoS field
+def note_parser(impact):
+    return impact.split("cited By ")[1] # For SCOPUS field: note={cited By 1}
 def cited_references_parser(cr):
     # This is a WoS field
+    cr = cr.replace(separator, "-").replace("\n", separator)
     f=open("references-wos.txt", "a+")
     f.write(str(cr))
-    return cr.replace("\n", separator)
+    return cr
 def references_parser(cr):
     # This is a SCOPUS field
+    cr = cr.replace(separator, "-").replace(separator, "\n").strip()
     f=open("references-scopus.txt", "a+")
-    f.write(str(cr.replace(separator, "\n").strip()))
+    f.write(str(cr))
     return cr
 
 def print_log(msg):
@@ -109,7 +116,7 @@ def read_bib(source):
     entries_unified = []
     for entrie in bib_db.entries:
         entries_unified.append(unify(entrie, source))
-    print_log(str(len(entries_unified))+" processed records")
+    print_log(str(len(entries_unified)+1)+" processed records")
     return entries_unified
 
 def merge(entries):
@@ -132,7 +139,7 @@ def tocsv(toCSV):
         dict_writer = csv.DictWriter(output_file, keys, delimiter='\t')
         dict_writer.writeheader()
         dict_writer.writerows(toCSV)
-    print_log(str(len(toCSV))+ " total records saved")
+    print_log(str(len(toCSV)+1)+ " total records saved")
 
 def run():
     print_log("\nRunning BibTeX to txt\n")
