@@ -119,23 +119,30 @@ def read_bib(source):
     print_log(str(len(entries_unified)+1)+" processed records")
     return entries_unified
 
+def overlaying(entries, repeated):
+    similars = []
+    # search every repeated in entries and save it in similars
+    #tocsv(similars)
+
 def merge(entries):
     print_log("\nMerging similar records...")
     unique = set()
+    repeated = set()
     merged = []
     for f in entries:
         i = len(unique)
         unique.add(f["titleletters"])
         if i == len(unique):
-            print("Change this for good merging algo") # *********** TODO **************
+            repeated.add(f["titleletters"])
         else:
             merged.append(f)
+    overlaying(entries, repeated)
     return merged
 
-def tocsv(toCSV):
-    print_log("\nSaving unified.txt as a tab separated file")
+def tocsv(toCSV, filename="unified.txt"):
+    print_log("\nSaving "+filename+" as a tab separated file")
     keys = toCSV[0].keys()
-    with open('unified.txt', 'wb') as output_file:
+    with open(filename, 'wb') as output_file:
         dict_writer = csv.DictWriter(output_file, keys, delimiter='\t')
         dict_writer.writeheader()
         dict_writer.writerows(toCSV)
