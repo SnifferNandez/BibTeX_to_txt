@@ -36,7 +36,7 @@ def year_parser(date):
     return re.search('\d{4}', date).group(0)
 def keywords_parser(kw):
     kw = kw.replace("\n", " ") # For WoS field
-    kw = kw.replace(separator, "-").replace(",", separator) # For EBSCO field
+    kw = kw.replace("-", ";").replace(separator, "-").replace(",", separator) # For EBSCO field
     return kw
 def keywords_plus_parser(kw):
     kw = kw.replace("\n", " ") # For WoS field
@@ -50,14 +50,14 @@ def note_parser(impact):
 def cited_references_parser(cr):
     # This is a WoS field
     cr = cr.replace(separator, "-").replace("\n", separator)
-    f=open("9-references-wos.txt", "a+")
-    f.write(str(cr))
+    #f=open("9-references-wos.txt", "a+")
+    #f.write(str(cr))
     return cr
 def references_parser(cr):
     # This is a SCOPUS field
     cr = cr.replace(separator, "-").replace(separator, "\n").strip()
-    f=open("9-references-scopus.txt", "a+")
-    f.write(str(cr))
+    #f=open("9-references-scopus.txt", "a+")
+    #f.write(str(cr))
     return cr
 
 def print_log(msg):
@@ -123,14 +123,16 @@ def read_bib(source):
     return entries_unified
 
 def overlaying(data):
+    print_log("- Simple overlay analysis:")
     overlay = {}
     for d in data:
-        o = separator.join(sorted(d.split(separator)))
+        #o = separator.join(sorted(d.split(separator)))
         try:
-            overlay[o] += 1
+            overlay[d] += 1
         except:
-            overlay[o] = 1
-    print_log("- Simple overlay analysis:")
+            overlay[d] = 1
+    # Analizar casos: wos.bib;wos.bib;wos.bib (resta 2 a wos.bib)
+    # o: wos.bib;ebsco.bib;wos.bib (resta 1 a wos.bib y suma a ebsco.bib;wos.bib)
     for k, v in overlay.items():
         print_log(str(v) + "\t" + k.replace(separator," + "))
 
@@ -145,7 +147,8 @@ def overlayed(entries, repeated, commons):
                     if r["titleletters"] == common:
                         fuentes.append(r["Fuente"])
                 repeated.append(entrie.copy())
-                entrie["Fuente"] += separator + separator.join(fuentes)
+                d = entrie["Fuente"] + separator + separator.join(fuentes)
+                entrie["Fuente"] = separator.join(sorted(d.split(separator)))
                 overlay.append(str(entrie["Fuente"]))
                 break
     tocsv(repeated,"3-repeated.txt")
@@ -158,20 +161,33 @@ def merge(entries):
     repeated = []
     commons = set()
     merged = []
-    for f in entries:
+    for e in entries:
         i = len(unique)
-        unique.add(f["titleletters"])
+        unique.add(e["titleletters"])
         if i == len(unique):
-            commons.add(f["titleletters"])
-            repeated.append(f)
+            commons.add(e["titleletters"])
+            repeated.append(e)
         else:
-            merged.append(f)
+            merged.append(e)
     if len(commons) > 0:
         merged = overlayed(merged, repeated, commons)
     else:
         print_log("No repeated records found")
     tocsv(merged,"2-uniques.txt")
     return merged
+
+def unauthor(entries):
+    print_log("\nSearching for unauthored records")
+    withouttitle = []
+    for e in entries:
+        if e["Autor"] == "" or e["Autor"] == None:
+            withouttitle.append(e)
+            entries.remove(e)
+    print_log(str(len(withouttitle))+ " records without author")
+    if len(withouttitle) > 0:
+        tocsv(withouttitle,"4-withoutauthor.txt")
+        tocsv(entries,"5-withauthor.txt")
+    return entries
 
 def tocsv(toCSV, filename="unamed.txt"):
     print_log("\nSaving "+filename+" as a tab separated file")
@@ -189,5 +205,7 @@ def run():
         entries_to_save.extend(read_bib(filename))
     tocsv(entries_to_save,"1-all.txt")
     entries_to_save = merge(entries_to_save)
+    # Separar los "sin titulo"
+    entries_to_save = unauthor(entries_to_save)
 
 run()
