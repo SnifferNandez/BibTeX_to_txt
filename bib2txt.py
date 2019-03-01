@@ -50,19 +50,19 @@ def note_parser(impact):
 def cited_references_parser(cr):
     # This is a WoS field
     cr = cr.replace(separator, "-").replace("\n", separator)
-    f=open("references-wos.txt", "a+")
+    f=open("9-references-wos.txt", "a+")
     f.write(str(cr))
     return cr
 def references_parser(cr):
     # This is a SCOPUS field
     cr = cr.replace(separator, "-").replace(separator, "\n").strip()
-    f=open("references-scopus.txt", "a+")
+    f=open("9-references-scopus.txt", "a+")
     f.write(str(cr))
     return cr
 
 def print_log(msg):
-    f=open("log.txt", "a+")
-    f.write(str(msg))
+    f=open("0-log.txt", "a+")
+    f.write(str(msg)+"\n")
     print(msg)
 
 def load_bib(filename):
@@ -119,25 +119,41 @@ def read_bib(source):
     entries_unified = []
     for entrie in bib_db.entries:
         entries_unified.append(unify(entrie, source))
-    print_log(str(len(entries_unified)+1)+" processed records")
+    print_log(str(len(entries_unified))+" processed records")
     return entries_unified
 
-def overlaying(entries, repeated, commons):
+def overlaying(data):
+    overlay = {}
+    for d in data:
+        o = separator.join(sorted(d.split(separator)))
+        try:
+            overlay[o] += 1
+        except:
+            overlay[o] = 1
+    print_log("- Simple overlay analysis:")
+    for k, v in overlay.items():
+        print_log(str(v) + "\t" + k.replace(separator," + "))
+
+def overlayed(entries, repeated, commons):
+    print_log(str(len(commons))+" repeated records")
+    overlay = []
     for common in commons:
         for entrie in entries:
             if entrie["titleletters"] == common:
-                fuentes = ""
+                fuentes = []
                 for r in repeated:
                     if r["titleletters"] == common:
-                        fuentes += r["Fuente"]
+                        fuentes.append(r["Fuente"])
                 repeated.append(entrie.copy())
-                entrie["Fuente"] += separator + fuentes
+                entrie["Fuente"] += separator + separator.join(fuentes)
+                overlay.append(str(entrie["Fuente"]))
                 break
-    tocsv(repeated,"overlaying.txt")
+    tocsv(repeated,"3-repeated.txt")
+    overlaying(overlay)
     return entries
 
 def merge(entries):
-    print_log("\nMerging similar records...")
+    print_log("\nSearching for similar records...")
     unique = set()
     repeated = []
     commons = set()
@@ -150,14 +166,14 @@ def merge(entries):
             repeated.append(f)
         else:
             merged.append(f)
-    if len(commons) > 1:
-        merged = overlaying(merged, repeated, commons)
+    if len(commons) > 0:
+        merged = overlayed(merged, repeated, commons)
     else:
-        print_log("No overlaying found")
+        print_log("No repeated records found")
+    tocsv(merged,"2-uniques.txt")
     return merged
 
-def tocsv(toCSV, filename="unified.txt"):
-    print(len(toCSV))
+def tocsv(toCSV, filename="unamed.txt"):
     print_log("\nSaving "+filename+" as a tab separated file")
     keys = toCSV[0].keys()
     with open(filename, 'wb') as output_file:
@@ -171,7 +187,7 @@ def run():
     entries_to_save = []
     for filename in glob.glob('*.bib'):
         entries_to_save.extend(read_bib(filename))
+    tocsv(entries_to_save,"1-all.txt")
     entries_to_save = merge(entries_to_save)
-    tocsv(entries_to_save)
 
 run()
