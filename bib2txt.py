@@ -155,6 +155,12 @@ def overlayed(entries, repeated, commons):
     overlaying(overlay)
     return entries
 
+def search_titleletters(titleletters, entries):
+    for e in entries:
+        if titleletters == e["titleletters"]:
+            return e
+    return {}
+
 def merge(entries):
     print_log("\nSearching for similar records...")
     unique = set()
@@ -166,7 +172,18 @@ def merge(entries):
         unique.add(e["titleletters"])
         if i == len(unique):
             commons.add(e["titleletters"])
-            repeated.append(e)
+            # This make a prefered selection, articles over all
+            if e["Tipo"] == "article":
+                old = search_titleletters(e["titleletters"],entries)
+                if old["Tipo"] != "article":
+                    print("replacing " + e["titleletters"])
+                    repeated.append(old)
+                    merged.remove(old)
+                    merged.append(e)
+                else:
+                    repeated.append(e)
+            else:
+                repeated.append(e)
         else:
             merged.append(e)
     if len(commons) > 0:
@@ -175,6 +192,20 @@ def merge(entries):
         print_log("No repeated records found")
     tocsv(merged,"2-uniques.txt")
     return merged
+
+def types_counter(entries):
+    print_log("- Types record analysis:")
+    types = {}
+    for e in entries:
+        #o = separator.join(sorted(d.split(separator)))
+        try:
+            types[e["Tipo"]] += 1
+        except:
+            types[e["Tipo"]] = 1
+    # Analizar casos: wos.bib;wos.bib;wos.bib (resta 2 a wos.bib)
+    # o: wos.bib;ebsco.bib;wos.bib (resta 1 a wos.bib y suma a ebsco.bib;wos.bib)
+    for k, v in types.items():
+        print_log(str(v) + "\t" + k.replace(separator," + "))
 
 def unauthor(entries):
     print_log("\nSearching for unauthored records")
@@ -205,7 +236,7 @@ def run():
         entries_to_save.extend(read_bib(filename))
     tocsv(entries_to_save,"1-all.txt")
     entries_to_save = merge(entries_to_save)
-    # Separar los "sin titulo"
+    types_counter(entries_to_save)
     entries_to_save = unauthor(entries_to_save)
 
 run()
