@@ -38,6 +38,9 @@ def keywords_parser(kw):
     kw = kw.replace("\n", " ") # For WoS field
     kw = kw.replace(separator, "-").replace(",", separator) # For EBSCO field
     return kw
+def keywords_plus_parser(kw):
+    kw = kw.replace("\n", " ") # For WoS field
+    return kw
 def abstract_parser(abs):
     return abs.replace("\n", " ") # For WoS field
 def times_cited_parser(impact):
@@ -119,34 +122,49 @@ def read_bib(source):
     print_log(str(len(entries_unified)+1)+" processed records")
     return entries_unified
 
-def overlaying(entries, repeated):
-    similars = []
-    # search every repeated in entries and save it in similars
-    #tocsv(similars)
+def overlaying(entries, repeated, commons):
+    for common in commons:
+        for entrie in entries:
+            if entrie["titleletters"] == common:
+                fuentes = ""
+                for r in repeated:
+                    if r["titleletters"] == common:
+                        fuentes += r["Fuente"]
+                repeated.append(entrie.copy())
+                entrie["Fuente"] += separator + fuentes
+                break
+    tocsv(repeated,"overlaying.txt")
+    return entries
 
 def merge(entries):
     print_log("\nMerging similar records...")
     unique = set()
-    repeated = set()
+    repeated = []
+    commons = set()
     merged = []
     for f in entries:
         i = len(unique)
         unique.add(f["titleletters"])
         if i == len(unique):
-            repeated.add(f["titleletters"])
+            commons.add(f["titleletters"])
+            repeated.append(f)
         else:
             merged.append(f)
-    overlaying(entries, repeated)
+    if len(commons) > 1:
+        merged = overlaying(merged, repeated, commons)
+    else:
+        print_log("No overlaying found")
     return merged
 
 def tocsv(toCSV, filename="unified.txt"):
+    print(len(toCSV))
     print_log("\nSaving "+filename+" as a tab separated file")
     keys = toCSV[0].keys()
     with open(filename, 'wb') as output_file:
         dict_writer = csv.DictWriter(output_file, keys, delimiter='\t')
         dict_writer.writeheader()
         dict_writer.writerows(toCSV)
-    print_log(str(len(toCSV)+1)+ " total records saved")
+    print_log(str(len(toCSV))+ " total records saved")
 
 def run():
     print_log("\nRunning BibTeX to txt\n")
