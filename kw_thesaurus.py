@@ -3,6 +3,7 @@ import sys
 reload(sys)
 sys.setdefaultencoding('utf8') # Useful for some special chars like ü
 
+import nltk
 from nltk.stem import PorterStemmer
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import stopwords
@@ -16,7 +17,7 @@ def new_word(keyword):
     # Lematizar palabras es similar a la derivación regresiva; pero, la diferencia es el que la lematización es el mundo real.
     lemmatizer = WordNetLemmatizer()
     kw = lemmatizer.lemmatize(keyword)
-    return stemmer.stem(keyword)
+    return stemmer.stem(keyword).strip()
 
 def new_words(actual_words):
     # Para sugerir tesauros:
@@ -30,14 +31,13 @@ def new_words(actual_words):
     return " ".join(changed_words)
 
 def remove_parentheses(words):
-    print(words)
     b = words.find("(")
     e = words.find(")")
     if b != -1 and e == -1:
         e = len(words)
     s = words[b:e+1]
     words = words.replace(s,"")
-    return words
+    return words.strip()
 
 def transform_all_words(filename):
     with open(filename) as f:
@@ -52,6 +52,15 @@ def transform_all_words(filename):
             #if nw.find("(") != -1:
             #    print("Thesaurus?: " + words.strip())
     return new_all_words
+
+def plot_frecuency(unique_set):
+    tokens = []
+    for u in unique_set:
+        tokens.extend(u.split(" "))
+    freq = nltk.FreqDist(tokens)
+    for key,val in freq.items():
+        print (str(key) + ':' + str(val))
+    freq.plot(20, cumulative=False)
 
 def write_file(data, filename="unnamed.txt"):
     print("  Writing "+filename+" file")
@@ -69,6 +78,7 @@ def run():
     print("Derived in " + str(len(new_unique_words)) + " unique lines")
     save_array(sorted(new_unique_words),"5-NewUniqueDerivedKw.txt")
 
+    plot_frecuency(new_unique_words)
     #with open('thesaurusLogic.json','r') as inf:
     #    thesaurusLogic = eval(inf.read())
 
