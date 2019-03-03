@@ -7,6 +7,7 @@ sys.setdefaultencoding('utf8') # Useful for authors like Schwarzmüller
 import re
 import csv
 import glob
+import logging
 import bibtexparser
 from bibtexparser.bparser import BibTexParser
 from bibtexparser.customization import convert_to_unicode
@@ -24,6 +25,22 @@ unify_fields = {"Titulo":["title"],
                 "Referencias":["cited-references","references"], # Only on WoS and SCOPUS
                 }
 
+
+logger = logging.getLogger(__name__)
+f_handler = logging.FileHandler('0-log.txt')
+f_format = logging.Formatter('%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S')
+#f_handler.setLevel(logging.ERROR)
+logger.addHandler(f_handler)
+
+def print_log(msg):
+    logger.info(msg)
+    print(msg)
+
+def write_file(data, filename="unnamed.txt"):
+    print_log("-Writing "+filename+" file")
+    f=open(filename, "a+")
+    f.write(data)
+
 # This functions helps to parse correctly every field
 def title_parser(title):
     return title.replace("\n", " ") # For WoS field
@@ -36,7 +53,8 @@ def year_parser(date):
     return re.search('\d{4}', date).group(0)
 def keywords_parser(kw):
     kw = kw.replace("\n", " ") # For WoS field
-    kw = kw.replace("-", ";").replace(separator, "-").replace(",", separator) # For EBSCO field
+    kw = kw.replace(" and ",separator) # For some SCOPUS keywords
+    kw = kw.replace("--", separator).replace(",", separator) # For EBSCO field
     return kw
 def keywords_plus_parser(kw):
     kw = kw.replace("\n", " ") # For WoS field
@@ -59,11 +77,6 @@ def references_parser(cr):
     #f=open("9-references-scopus.txt", "a+")
     #f.write(str(cr))
     return cr
-
-def print_log(msg):
-    f=open("0-log.txt", "a+")
-    f.write(str(msg)+"\n")
-    print(msg)
 
 def load_bib(filename):
     with open(filename) as bibtex_file:
@@ -142,6 +155,17 @@ def overlayed(entries, repeated, commons):
     for common in commons:
         for entrie in entries:
             if entrie["titleletters"] == common:
+            # **************************************
+            # **************************************
+            # **************************************
+            #                TODO:
+            #      El impacto y las referencias
+            # no pueden ser de EBSCO sino WoS-SCOPUS
+            #       Tambien sumar las keywords
+            # **************************************
+            # **************************************
+            # **************************************
+            # This make a prefered selection, articles over all
                 fuentes = []
                 for r in repeated:
                     if r["titleletters"] == common:
@@ -172,7 +196,6 @@ def merge(entries):
         unique.add(e["titleletters"])
         if i == len(unique):
             commons.add(e["titleletters"])
-            # This make a prefered selection, articles over all
             if e["Tipo"] == "article":
                 old = search_titleletters(e["titleletters"],entries)
                 if old["Tipo"] != "article":
@@ -197,15 +220,25 @@ def types_counter(entries):
     print_log("- Types record analysis:")
     types = {}
     for e in entries:
-        #o = separator.join(sorted(d.split(separator)))
+        # Indicar en que fuentes se encuentran esos tipos
         try:
             types[e["Tipo"]] += 1
         except:
             types[e["Tipo"]] = 1
-    # Analizar casos: wos.bib;wos.bib;wos.bib (resta 2 a wos.bib)
-    # o: wos.bib;ebsco.bib;wos.bib (resta 1 a wos.bib y suma a ebsco.bib;wos.bib)
     for k, v in types.items():
         print_log(str(v) + "\t" + k.replace(separator," + "))
+
+def keywords_analysis(entries):
+    print_log("- Analysis of keywords:")
+    unique_keywords = set()
+    for e in entries:
+        keywords = e["Palabras"].capitalize()
+        for keyword in keywords.split(separator):
+            unique_keywords.add(keyword.strip())
+    #print(unique_keywords)
+    print_log(str(len(unique_keywords))+ " unique keywords")
+    to_file = '\n'.join(str(line) for line in sorted(unique_keywords))
+    write_file(to_file,"4-uniqueKW.txt")
 
 def unauthor(entries):
     print_log("\nSearching for unauthored records")
@@ -216,8 +249,8 @@ def unauthor(entries):
             entries.remove(e)
     print_log(str(len(withouttitle))+ " records without author")
     if len(withouttitle) > 0:
-        tocsv(withouttitle,"4-withoutauthor.txt")
-        tocsv(entries,"5-withauthor.txt")
+        tocsv(withouttitle,"9-withoutauthor.txt")
+        tocsv(entries,"9-withauthor.txt")
     return entries
 
 def tocsv(toCSV, filename="unamed.txt"):
@@ -237,6 +270,11 @@ def run():
     tocsv(entries_to_save,"1-all.txt")
     entries_to_save = merge(entries_to_save)
     types_counter(entries_to_save)
-    entries_to_save = unauthor(entries_to_save)
+    keywords_analysis(entries_to_save)
 
-run()
+
+
+try:
+    run()
+except Exception as e:
+    logging.error("Exception occurred", exc_info=True)
