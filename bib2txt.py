@@ -29,7 +29,7 @@ unify_fields = {"Titulo":["title"],
 logger = logging.getLogger(__name__)
 f_handler = logging.FileHandler('0-log.txt')
 f_format = logging.Formatter('%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S')
-#f_handler.setLevel(logging.ERROR)
+f_handler.setLevel(logging.ERROR)
 logger.addHandler(f_handler)
 
 def print_log(msg):
@@ -37,8 +37,8 @@ def print_log(msg):
     print(msg)
 
 def write_file(data, filename="unnamed.txt"):
-    print_log("-Writing "+filename+" file")
-    f=open(filename, "a+")
+    print_log("  Writing "+filename+" file")
+    f=open(filename, "w+")
     f.write(data)
 
 # This functions helps to parse correctly every field
@@ -86,6 +86,10 @@ def load_bib(filename):
                                           parser=parser)
         return bib_database
 
+# *********
+# *********
+# Unused and usefull functions
+
 # Useful to know all the fields in a bib_db
 def show_fields(source):
     fields = set()
@@ -94,6 +98,7 @@ def show_fields(source):
         fields.update(entrie.keys())
     for field in fields:
         print_log(field)
+
 # Useful to see some examples of data in a specific field
 def show_ids(source, field, rows=8):
     bib_db = load_bib(source)
@@ -103,6 +108,27 @@ def show_ids(source, field, rows=8):
         except:
             print_log("-")
         print_log("\n")
+
+def unauthor(entries):
+    print_log("\nSearching for unauthored records")
+    withouttitle = []
+    for e in entries:
+        if e["Autor"] == "" or e["Autor"] == None:
+            withouttitle.append(e)
+            entries.remove(e)
+    print_log(str(len(withouttitle))+ " records without author")
+    if len(withouttitle) > 0:
+        tocsv(withouttitle,"9-withoutauthor.txt")
+        tocsv(entries,"9-withauthor.txt")
+    return entries
+
+def search_titleletters(titleletters, entries):
+    for e in entries:
+        if titleletters == e["titleletters"]:
+            return e
+    return {}
+# *********
+# *********
 
 def unify(bib_entry, source="undefined"):
     entry = {"Fuente": source}
@@ -155,6 +181,18 @@ def overlayed(entries, repeated, commons):
     for common in commons:
         for entrie in entries:
             if entrie["titleletters"] == common:
+                # Indica en que fuentes se repite
+                fuentes = []
+                for r in repeated:
+                    if r["titleletters"] == common:
+                        fuentes.append(r["Fuente"])
+                    # This make a prefered selection, articles over all
+                    if entrie["Tipo"] != "article" and r["Tipo"] == "article":
+                        # Change the two entries
+                        entrie = entrie
+
+
+
             # **************************************
             # **************************************
             # **************************************
@@ -165,11 +203,7 @@ def overlayed(entries, repeated, commons):
             # **************************************
             # **************************************
             # **************************************
-            # This make a prefered selection, articles over all
-                fuentes = []
-                for r in repeated:
-                    if r["titleletters"] == common:
-                        fuentes.append(r["Fuente"])
+
                 repeated.append(entrie.copy())
                 d = entrie["Fuente"] + separator + separator.join(fuentes)
                 entrie["Fuente"] = separator.join(sorted(d.split(separator)))
@@ -178,12 +212,6 @@ def overlayed(entries, repeated, commons):
     tocsv(repeated,"3-repeated.txt")
     overlaying(overlay)
     return entries
-
-def search_titleletters(titleletters, entries):
-    for e in entries:
-        if titleletters == e["titleletters"]:
-            return e
-    return {}
 
 def merge(entries):
     print_log("\nSearching for similar records...")
@@ -196,17 +224,6 @@ def merge(entries):
         unique.add(e["titleletters"])
         if i == len(unique):
             commons.add(e["titleletters"])
-            if e["Tipo"] == "article":
-                old = search_titleletters(e["titleletters"],entries)
-                if old["Tipo"] != "article":
-                    print("replacing " + e["titleletters"])
-                    repeated.append(old)
-                    merged.remove(old)
-                    merged.append(e)
-                else:
-                    repeated.append(e)
-            else:
-                repeated.append(e)
         else:
             merged.append(e)
     if len(commons) > 0:
@@ -228,30 +245,26 @@ def types_counter(entries):
     for k, v in types.items():
         print_log(str(v) + "\t" + k.replace(separator," + "))
 
+def keyword_rules(keyword):
+    keyword = keyword.strip()
+    keyword = keyword.replace("-", " ")
+    keyword = keyword.replace("’", "'")
+    return keyword
+
 def keywords_analysis(entries):
     print_log("- Analysis of keywords:")
     unique_keywords = set()
+    all_keywords = []
     for e in entries:
-        keywords = e["Palabras"].capitalize()
+        keywords = e["Palabras"].lower().replace("/", separator)
+        all_keywords.append(keywords)
         for keyword in keywords.split(separator):
-            unique_keywords.add(keyword.strip())
-    #print(unique_keywords)
-    print_log(str(len(unique_keywords))+ " unique keywords")
+            unique_keywords.add(keyword_rules(keyword))
+    print_log("  " + str(len(unique_keywords)) + " unique keywords")
+    to_file = '\n'.join(str(line) for line in all_keywords)
+    write_file(to_file,"4-allKw.txt")
     to_file = '\n'.join(str(line) for line in sorted(unique_keywords))
-    write_file(to_file,"4-uniqueKW.txt")
-
-def unauthor(entries):
-    print_log("\nSearching for unauthored records")
-    withouttitle = []
-    for e in entries:
-        if e["Autor"] == "" or e["Autor"] == None:
-            withouttitle.append(e)
-            entries.remove(e)
-    print_log(str(len(withouttitle))+ " records without author")
-    if len(withouttitle) > 0:
-        tocsv(withouttitle,"9-withoutauthor.txt")
-        tocsv(entries,"9-withauthor.txt")
-    return entries
+    write_file(to_file,"5-uniqueKw.txt")
 
 def tocsv(toCSV, filename="unamed.txt"):
     print_log("\nSaving "+filename+" as a tab separated file")
@@ -273,8 +286,8 @@ def run():
     keywords_analysis(entries_to_save)
 
 
-
 try:
     run()
 except Exception as e:
+    logger.error("Exception occurred", exc_info=True)
     logging.error("Exception occurred", exc_info=True)
